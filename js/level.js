@@ -64,7 +64,7 @@ function buildLevel() {
 
   // ───────── 1구역: 속삭이는 숲 ─────────
   trigger(1, 'yabung', '엄마…? 리베라 엄마! 어디 있어요?');
-  trigger(4, 'yabung', '분홍 리본이 떨어져 있어… 엄마 거야! 냄새를 따라가자!');
+  trigger(4, 'yabung', '반짝이는 금색 귀걸이… 엄마 거야! 냄새를 따라가자!');
   ground(0, 15);
   treatRow(5, 11, 3);
   plat(9, 9, 3); treatRow(9, 8, 3);

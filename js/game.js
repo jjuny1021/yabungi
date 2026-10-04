@@ -15,7 +15,7 @@
     boss: { name: '냥보스', color: '#8a7bbd' },
   };
 
-  const G = { state: 'title', t: 0, cam: { x: 0 }, particles: [], winT: 0 };
+  const G = { state: 'title', t: 0, cam: { x: 0 }, particles: [], winT: 0, buttons: [] };
   window.G = G; // 디버그용
 
   // ───────── 화면 크기 ─────────
@@ -134,9 +134,20 @@
   } else {
     fsBtn.style.display = 'none';
   }
-  canvas.addEventListener('pointerdown', () => {
+  canvas.addEventListener('pointerdown', (e) => {
     Sound.init();
-    canvasTap();
+    const id = hitButton(toLogical(e));
+    if (id) {
+      e.preventDefault();
+      pressButton(id);
+    } else if (G.state === 'play' || G.state === 'rescue') {
+      skipDialog();
+    }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    hoverBtn = hitButton(toLogical(e));
+    canvas.style.cursor = hoverBtn ? 'pointer' : 'default';
   });
 
   function canvasTap() {
@@ -596,6 +607,7 @@
   // ───────── 렌더 ─────────
   function render() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    G.buttons = [];
     if (G.state === 'title') {
       renderTitle();
       return;
@@ -612,11 +624,13 @@
     drawCageBack(ctx, L.cage);
     // 리베라
     const c = L.cage;
-    drawDog(ctx, c.lx, 12 * TILE - 12 * (1 - c.doorT), 1.3, -1, G.t * (c.lrun ? 1 : 0.6),
-      { bow: true, tint: '#fffaf2', line: '#d6c4b0', ear: '#f6e6d4', run: c.lrun, happy: G.state !== 'play' });
+    const freed = G.state !== 'play';
+    drawHuman(ctx, c.lx, 12 * TILE - 12 * (1 - c.doorT), 1.0, -1, G.t, {
+      walk: c.lrun, reach: freed && !c.lrun && c.doorT >= 1, happy: freed && !c.lrun, sad: !freed,
+    });
     drawCageFront(ctx, c);
     if (G.state === 'play' && Math.abs(G.p.x - c.x * TILE) < 700 && Math.sin(G.t * 2) > -0.2) {
-      drawBubble(ctx, c.lx, 12 * TILE - 92, L.gate.open ? '야붕아! 여기야!' : '야붕아… 살려줘!');
+      drawBubble(ctx, c.lx, 12 * TILE - 150, L.gate.open ? '야붕아! 여기야!' : '야붕아… 엄마 여기 있어!');
     }
 
     drawTiles(ctx, L, camX, W);
@@ -751,8 +765,11 @@
       ctx.scale(1.7, 1.7);
       drawCat(ctx, 0, 0, 1, G.t, { boss: true });
     } else {
-      const lib = speaker !== 'yabung';
-      drawDog(ctx, x - 25, y + 46, 1.55, 1, G.t, { bow: lib, collar: !lib, tint: lib ? '#fffaf2' : '#fff', closed: speaker === 'memory' });
+      if (speaker === 'yabung') {
+        drawDog(ctx, x - 25, y + 46, 1.55, 1, G.t, { collar: true });
+      } else {
+        drawHuman(ctx, x - 6, y + 82 * 1.3 + 2, 1.3, 1, G.t, { closed: speaker === 'memory' });
+      }
     }
     ctx.restore();
   }
@@ -808,23 +825,97 @@
     ctx.stroke();
   }
 
+  // ───────── 메뉴 버튼 (터치·마우스 공용) ─────────
+  const BTN_COLORS = {
+    pink: ['#ff5c8a', '#d13d6b', '#fff'],
+    yellow: ['#ffd56b', '#d9a93a', '#5a3d14'],
+    lilac: ['#ece6f7', '#c7bce0', '#4a3a5c'],
+  };
+  let hoverBtn = null;
+  function button(id, label, cx, cy, w, h, color = 'pink', size = 26) {
+    const [bg, shade, fg] = BTN_COLORS[color];
+    const down = G.pressedBtn === id && G.t - G.pressedAt < 0.15;
+    const lift = down ? 2 : hoverBtn === id ? -2 : 0;
+    const x = cx - w / 2;
+    const y = cy - h / 2 + lift;
+    ctx.fillStyle = shade;
+    rr(ctx, x, cy - h / 2 + 5, w, h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = bg;
+    rr(ctx, x, y, w, h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    rr(ctx, x + 10, y + 5, w - 20, h * 0.32, h * 0.16);
+    ctx.fill();
+    text(ctx, label, cx, y + h / 2 + 1, size, fg);
+    // 손가락으로 누르기 쉽도록 판정 영역은 조금 더 넓게
+    G.buttons.push({ id, x: x - 6, y: cy - h / 2 - 6, w: w + 12, h: h + 17 });
+  }
+
+  function soundLabel() {
+    return Sound.muted ? '소리 켜기' : '소리 끄기';
+  }
+
+  function pressButton(id) {
+    G.pressedBtn = id;
+    G.pressedAt = G.t;
+    Sound.init();
+    switch (id) {
+      case 'start':
+      case 'restart':
+        startGame();
+        break;
+      case 'resume':
+        G.state = 'play';
+        break;
+      case 'continue':
+        continueGame();
+        break;
+      case 'home':
+        G.state = 'title';
+        break;
+      case 'sound':
+        Sound.toggle();
+        if (!Sound.muted) Sound.fx.treat();
+        break;
+      default:
+        break;
+    }
+  }
+
+  function toLogical(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
+  }
+
+  function hitButton(p) {
+    for (let i = G.buttons.length - 1; i >= 0; i--) {
+      const b = G.buttons[i];
+      if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) return b.id;
+    }
+    return null;
+  }
+
   function drawPause() {
     overlay();
-    panel(W / 2 - 220, 150, 440, 240);
-    text(ctx, '잠깐 쉬는 중', W / 2, 205, 40, '#4a3a5c');
-    text(ctx, 'P / Esc / 화면 터치 : 계속하기', W / 2, 270, 21, '#6a5a7c');
-    text(ctx, 'R : 처음부터 다시', W / 2, 305, 21, '#6a5a7c');
-    text(ctx, 'M : 소리 켜기/끄기', W / 2, 340, 21, '#6a5a7c');
+    panel(W / 2 - 200, 80, 400, 410);
+    text(ctx, '잠깐 쉬는 중', W / 2, 135, 40, '#4a3a5c');
+    button('resume', '▶  계속하기', W / 2, 215, 280, 62, 'pink', 28);
+    button('restart', '처음부터 다시', W / 2, 295, 280, 56, 'yellow', 24);
+    button('sound', soundLabel(), W / 2 - 72, 370, 136, 50, 'lilac', 21);
+    button('home', '처음 화면', W / 2 + 72, 370, 136, 50, 'lilac', 21);
+    if (!isTouch) text(ctx, '키보드: P 계속 · R 처음부터 · M 소리', W / 2, 446, 16, '#9a8aac');
   }
 
   function drawGameOver() {
     overlay(0.6);
-    panel(W / 2 - 260, 120, 520, 300);
-    drawDog(ctx, W / 2, 250, 2, 1, G.t, { closed: true, collar: true });
-    text(ctx, '야붕이가 지쳐 쓰러졌어요…', W / 2, 290, 32, '#4a3a5c');
-    text(ctx, '엄마가 기다리고 있어. 다시 힘내자!', W / 2, 330, 20, '#8a6a9c');
-    text(ctx, 'Enter / 터치 : 마지막 깃발에서 다시', W / 2, 368, 19, '#ff5c8a');
-    text(ctx, 'R : 처음부터', W / 2, 396, 17, '#8a7a9c');
+    panel(W / 2 - 270, 90, 540, 390);
+    drawDog(ctx, W / 2, 215, 2, 1, G.t, { closed: true, collar: true });
+    text(ctx, '야붕이가 지쳐 쓰러졌어요…', W / 2, 255, 32, '#4a3a5c');
+    text(ctx, '엄마가 기다리고 있어. 다시 힘내자!', W / 2, 295, 20, '#8a6a9c');
+    button('continue', '▶  깃발에서 다시', W / 2, 360, 320, 62, 'pink', 27);
+    button('restart', '처음부터', W / 2 - 84, 432, 156, 50, 'yellow', 21);
+    button('home', '처음 화면', W / 2 + 84, 432, 156, 50, 'lilac', 21);
   }
 
   function drawWin() {
@@ -837,8 +928,8 @@
     ctx.fillStyle = '#ffeef4';
     ellipse(ctx, W / 2, 222, 150, 62);
     drawDog(ctx, W / 2 - 46, 262, 1.6, 1, G.t, { happy: true, collar: true });
-    drawDog(ctx, W / 2 + 56, 262, 2.0, -1, G.t + 1, { happy: true, bow: true, tint: '#fffaf2', line: '#d6c4b0', ear: '#f6e6d4' });
-    drawHeartItem(ctx, W / 2 + 4, 162 + Math.sin(G.t * 3) * 4, 26);
+    drawHuman(ctx, W / 2 + 44, 262, 1.12, -1, G.t + 1, { happy: true, reach: true });
+    drawHeartItem(ctx, W / 2 - 20, 176 + Math.sin(G.t * 3) * 4, 24);
 
     for (let i = 0; i < 3; i++) {
       ctx.fillStyle = i < G.stars ? '#ffc93c' : '#e3d9d2';
@@ -848,9 +939,12 @@
     const total = G.L.treats.length;
     text(ctx, `걸린 시간  ${fmtTime(G.time)}${G.newBest ? '  (최고 기록!)' : `   최고 ${fmtTime(G.best)}`}`, W / 2, 360, 22, '#4a3a5c');
     text(ctx, `모은 간식  ${G.treats} / ${total}     남은 하트  ${G.hearts}     물리친 적  ${G.kills}`, W / 2, 396, 20, '#6a5a7c');
-    text(ctx, '야붕이와 리베라는 함께 집으로 돌아갔어요.', W / 2, 438, 20, '#8a6a9c');
-    if (G.winT > 1.2 && Math.sin(G.t * 4) > -0.3) text(ctx, 'Enter / 터치 : 다시 모험하기', W / 2, 478, 22, '#ff5c8a');
+    text(ctx, '야붕이와 리베라는 함께 집으로 돌아갔어요.', W / 2, 430, 19, '#8a6a9c');
     ctx.globalAlpha = 1;
+    if (G.winT > 1.2) {
+      button('restart', '▶  다시 모험하기', W / 2 - 70, 476, 250, 50, 'pink', 23);
+      button('home', '처음 화면', W / 2 + 135, 476, 140, 50, 'lilac', 20);
+    }
   }
 
   function renderTitle() {
@@ -868,7 +962,7 @@
       ctx.fillStyle = P.top;
       for (let i = 0; i < 4; i++) circle(ctx, x + 5 + i * 10, 482, 4);
     }
-    drawDog(ctx, 250, 470, 2.2, 1, G.t, { run: true, collar: true });
+    drawDog(ctx, Math.max(120, W / 2 - 330), 470, 2.2, 1, G.t, { run: true, collar: true });
     for (let i = 0; i < 3; i++) {
       drawBone(ctx, ((600 + i * 160 - camX * 1.0) % 1100 + 1100) % 1100, 430 + Math.sin(G.t * 3 + i) * 6, 1.2, Math.sin(G.t + i) * 0.3);
     }
@@ -896,21 +990,34 @@
       ? '◀ ▶ 이동     점프 버튼     멍! 버튼 = 적 기절'
       : '← → 이동   스페이스 점프   X 멍멍(적 기절)   P 일시정지   M 소리', W / 2, 348, 16, '#7a6a8c');
 
-    if (Math.sin(G.t * 4) > -0.3) {
-      text(ctx, isTouch ? '화면을 터치해서 모험 시작!' : 'Enter 또는 스페이스로 모험 시작!', W / 2, 410, 28, '#ffffff', 'center', '#4a3a5c', 7);
-    }
+    const pulse = 1 + Math.sin(G.t * 4) * 0.03;
+    ctx.save();
+    ctx.translate(W / 2, 416);
+    ctx.scale(pulse, pulse);
+    ctx.translate(-W / 2, -416);
+    button('start', '▶  모험 시작', W / 2, 416, 280, 68, 'pink', 32);
+    ctx.restore();
+    button('sound', Sound.muted ? '소리 꺼짐' : '소리 켜짐', W - 92, 516, 150, 44, 'lilac', 19);
+    if (!isTouch) text(ctx, 'Enter 키로도 시작할 수 있어요', W / 2, 466, 16, '#ffffff', 'center', 'rgba(0,0,0,0.35)', 4);
     const best = Number(localStorage.getItem('yabungi_best') || 0);
-    if (best) text(ctx, `최고 기록 ${fmtTime(best)}`, W - 90, 530, 18, '#fff', 'center', 'rgba(0,0,0,0.35)', 4);
+    if (best) text(ctx, `최고 기록 ${fmtTime(best)}`, 90, 530, 18, '#fff', 'center', 'rgba(0,0,0,0.35)', 4);
   }
 
   // ───────── 메인 루프 ─────────
   const STEP = 1 / 120;
   let last = performance.now();
   let acc = 0;
+  let shownState = null;
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     acc += dt;
+    if (shownState !== G.state) {
+      shownState = G.state;
+      // 플레이 중에만 이동/점프 버튼 표시 → 메뉴 버튼을 가리지 않음
+      document.body.classList.toggle('playing', G.state === 'play' || G.state === 'rescue');
+      document.body.classList.toggle('paused', G.state === 'paused');
+    }
     if (G.state === 'title' || G.state === 'paused') G.t += dt;
     while (acc >= STEP) {
       if (G.state !== 'title' && G.state !== 'paused') tick(STEP);

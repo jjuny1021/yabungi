@@ -29,6 +29,9 @@ canvas {
 #touch { display: none; }
 
 body.touch-on #touch { display: block; }
+body.touch-on:not(.playing) .pad,
+body.touch-on:not(.playing) #rotateHint { display: none; }
+body.touch-on:not(.playing):not(.paused) #pauseBtn { display: none; }
 
 /* 세로 화면: 게임 화면은 위쪽, 조작 버튼은 아래쪽 */
 body.portrait #wrap {

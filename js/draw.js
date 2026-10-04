@@ -371,6 +371,10 @@ function drawDog(ctx, x, y, s, facing, t, o = {}) {
 }
 
 function drawCat(ctx, x, y, facing, t, o = {}) {
+  drawCatInner(ctx, x, y, facing, t, o);
+}
+
+function drawCatInner(ctx, x, y, facing, t, o = {}) {
   ctx.save();
   ctx.translate(x, y);
   ctx.fillStyle = 'rgba(0,0,0,0.15)';
