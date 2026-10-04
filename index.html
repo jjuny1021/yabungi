@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="야붕이" />
+  <meta name="theme-color" content="#2a2140" />
+  <title>야붕이: 리베라를 찾아서</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='55' r='38' fill='%23fff' stroke='%23ff5c8a' stroke-width='6'/%3E%3Ccircle cx='38' cy='50' r='5' fill='%23333'/%3E%3Ccircle cx='62' cy='50' r='5' fill='%23333'/%3E%3Cellipse cx='50' cy='64' rx='7' ry='5' fill='%23333'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game" aria-label="야붕이: 리베라를 찾아서 게임 화면"></canvas>
+  </div>
+
+  <!-- 모바일 터치 컨트롤 -->
+  <div id="touch" aria-hidden="true">
+    <div class="pad pad-left">
+      <button data-k="left">◀</button>
+      <button data-k="right">▶</button>
+    </div>
+    <div class="pad pad-right">
+      <button data-k="bark" class="bark">멍!</button>
+      <button data-k="jump" class="jump">점프</button>
+    </div>
+    <button id="pauseBtn" class="pause">II</button>
+    <button id="fsBtn" class="fs">⛶</button>
+    <div id="rotateHint">가로로 돌리면 더 넓게 볼 수 있어요</div>
+  </div>
+
+  <script src="js/audio.js"></script>
+  <script src="js/level.js"></script>
+  <script src="js/draw.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
